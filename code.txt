@@ -1,0 +1,438 @@
+---
+title: "classification non supervisee/supervisée et sa stabilité"
+author: "Triki Sadok"
+date: "28 décembre 2018"
+output: pdf_document 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height = 3,echo = TRUE)
+```
+
+ \center { Prédiction du postions des joueurs selon leur notes on FIFA 2018}
+\newpage
+
+# I-INTRODUCTION
+Le football est le sport collectif le plus répondu dans le monde, qui touche toute génération et tout genre.
+Certaines personnes, qui sont nouvelles à ce sport, ou meme certaines entreprises(sous un interet bien déterminé) veulent connaitre ou étudier le **profiling des joueurs** les plus connus au monde. 
+Donc pour faciliter la tache, on a recourt à classifier les joueurs celon un critère pour mieux étudier leurs caractéristiques. 
+
+# 1-Problèmatique
+-Comment connaître à priori le profil des joueurs les plus populaires? s'il est "Attaquant", "Défenseur","Gardien de but" ou "milieu de Terrain"
+
+-Comment ditinguer le profil d'un nouvel joueur selon la classification adaptée?
+
+- Est ce que cette classifiction est stable ? 
+
+## 2-Objectif
+L’objectif consiste à la  recherche  d’une typologie, ou segmentation, c’est-à-dire d’une partition, ou répartition des joueurs en classes homogènes et distinctes les unes des autres  pour un échantillon d’apprentissage.
+
+# II-EXPLOITATION DES DONNEES
+
+```{r }
+base=read.csv('file.csv')
+a2=base[,-c(1,2,3,4,8,9,10)]
+head(base)
+
+```
+Ce jeu de données est celui du jeu Fifa 2017 contenant tous les joueurs inscrits dans l'organisme FIFPRO 
+*source* : 
+## Statistique Descreptive : 
+```{r}
+base::summary(a2[,1:10])
+```
+
+# III-CLASSIFICATION NON SUPERVIEE
+
+## 1-K-means
+```{r echo=FALSE}
+classifK_means<-function(X,k){
+  classif<-kmeans(X, k, iter.max = 10, nstart = 1)
+  a=rep(0,nrow(X))
+  X=cbind.data.frame(X,a)
+  
+  X[,48]=as.factor(classif$cluster)
+  return(X)
+}
+```
+
+```{r  echo=FALSE}
+library(ggplot2)
+base=read.csv('file.csv')
+a2=base[,-c(1,2,3,4,8,9,10)]
+a2=a2[-14]
+a1=a2[1:300,]
+kmeans=classifK_means(a1,4)
+
+library(plyr)
+b=revalue(kmeans$a, c("1"="Gardien", "2"="Defenseur","3"="milieu","4"="Attaque"))
+P=cbind.data.frame(base$name[1:300],base$club[1:300],b)
+colnames(P)[3]='classe'
+head(P)
+
+
+
+```
+
+## Représentation des Résultats: 
+
+```{r}
+ggplot(kmeans, aes(kmeans$overall, kmeans$age, color = P$classe)) + geom_point()
+```
+
+## 2-Hiérarchie ascendante
+
+```{r  echo=FALSE}
+base=read.csv('file.csv')
+a2=base[,-c(1,2,3,4,8,9,10)]
+a2=a2[-14]
+a1=a2[1:1000,]
+
+dd<-c("euclidian")
+aggr<-c("ward","weighted","single","complete","average","flexible","gaverage") 
+
+classif_hc<-function(X,k,aggr,dd){
+  library(cluster)
+  classif<-agnes(X,method = aggr) 
+  #d<-dist(scale(X),method =dd)
+  #classif<-hclust(d,method = aggr)
+  cut<-cutree(classif,k=k)
+  a=rep(0,nrow(X))
+  X=cbind.data.frame(X,a)
+  
+  X[,48]=as.factor(cut)
+  return(X)
+}
+
+hierar=classif_hc(a1,4,aggr[1],dd[1])
+b2=revalue(hierar$a, c("1"="Attaquant", "2"="Gardien","3"="milieu","4"="Defenseur"))
+
+P2=cbind.data.frame(base$name[1:1000],base$club[1:1000],b2)
+colnames(P2)[3]='classe'
+head(P2)
+
+```
+## Représentation : 
+```{r}
+ggplot(hierar, aes(hierar$overall, hierar$age, color =P2$classe )) + geom_point()
+```
+
+## 3-Classification finale des joueurs
+
+```{r  echo=FALSE}
+bs=cbind.data.frame(P[1:300,],P2$classe[1:300])
+colnames(bs)[3]="Classe Kmeans"
+colnames(bs)[4]= "Classe cluster"
+head(bs)
+```
+
+-La meilleure partition pour les deux méthodes est égale à 4.
+
+-Donc on peut classer les joueurs selon 4 classes: 
+
+- 1: **Attaquant**
+
+- 2: **Gardient de but**
+
+- 3: **Milieu du terrain**
+
+- 4: **Défenceur**
+
+# IV-INDICE DE RAND ET STABILITE
+
+## 1-Définition
+L'indice de Rand est une mesure de **similarité** entre deux partitions d'un ensemble1. Il est principalement utilisé en catégorisation automatique. Son principe est de mesurer la consistance (le taux d'accord) entre deux partitions.
+
+## 2-Démarche algorithmique(Pour Une simulation )
+* simuler un jeu de données X composé de multivariées normales xi-> N(ui,sigma).
+ (Etape primordiale dans le cas de non existance d'une base réelle)
+
+```{r X, echo=FALSE}
+simul.X <- function(n1,n2,n3,n4){ 
+  
+  library(mvtnorm)
+  mu=c(12,30)
+  sigma=diag(1,2)
+  x1=rmvnorm(n =n1, mean =mu, sigma)
+  mu=c(25,36)
+  sigma=diag(1,2)
+  x2=rmvnorm(n = n2, mean =mu, sigma)
+  mu=c(11,25)
+  sigma=diag(1,2)
+  x3=rmvnorm(n = n3, mean =mu, sigma)
+  mu=c(5,35)
+  sigma=diag(1,2)
+  x4=rmvnorm(n = n4, mean =mu, sigma)
+  X=rbind.data.frame(x1,x2,x3,x4)
+return(X)
+}
+X=simul.X(100,70,30,50)
+head(X)
+
+```
+ 
+
+* appliquer les algorithmes de classifications A(k) et B(k) -> Pa(k) , Pb(k).
+(Dans notre example on utilisera K-means A(k) et l'hiérarchie ascendante B(K)).
+
+* Etudier la stabilité des partitions en appliquant l'Indice de Rand(IR) et l'Indice de Rand Corrigé(IRC).
+ 
+* Echantillonnage (stratifié, SAS ..)Ej, appliquer Aj(k) et Bj(k) -> Pa(K) , Pb(K).
+ Evaluer la stabilité par IR , IRC
+ 
+* Repeter N fois le processus.
+
+```{r }
+RI <- function(D1,D2){
+  
+  library(fossil)
+  
+  v<-as.numeric(D1)
+  vv<-as.numeric(D2)
+  
+   # rand index
+  x <- abs(sapply(v, function(x) x - v))
+  x[x > 1] <- 1
+  y <- abs(sapply(vv, function(x) x - vv))
+  y[y > 1] <- 1
+  sg <- sum(abs(x - y))/2
+  bc <- choose(dim(x)[1], 2)
+  ri <- 1 - sg/bc
+  
+  # adj rand index
+  a <- length(table(v))
+  N <- length(v)
+  ctab <- matrix(N, a, a)
+  for (j in 1:a) {
+    for (i in 1:a) {
+      ctab[j, i] <- length(which(vv[which(v == 
+                                                i)] == j))
+    }
+  }
+  sumnij <- sum(choose(ctab, 2))
+  sumai <- sum(choose(colSums(ctab), 2))
+  sumbj <- sum(choose(rowSums(ctab), 2))
+  Ntwo <- choose(N, 2)
+  ari <- abs((sumnij - (sumai * sumbj)/Ntwo)/(0.5 * (sumai + 
+                                                       sumbj) - (sumai * sumbj)/Ntwo))
+  
+  #a=rand.index(v,vv)
+  #b=adj.rand.index(v,vv)
+  A=cbind(ri,ari)
+  colnames(A)=c("rand_index","adj_rand_index")
+  A=as.data.frame(A)
+  #A=as.table(A)
+  #METHOD <- "Augmented Dickey-Fuller Test"
+  #names(ari) <- "rand index"
+  #names(ri) <- "adjasted-rand index"
+  #structure(list(statistic = ari, parameter = ri, method = METHOD, data.name ="A" ), 
+   #         class = "htest")
+  return(A)
+}
+mean_rand11<-function(D,N,k,sampling){
+  m=0
+  p=0
+  
+  if (sampling=="stratification"){
+  
+    for(i in 1:N){
+    kmeans=classifK_means(D,k)
+    hierar=classif_hc(D,k,aggr[1],dd[1])
+    strat4=stratif(hierar$a,kmeans$a)
+    rand4=RI(strat$echantillon_1,strat$echantillon_2)
+    m<-m+rand3$rand_index
+    p<-p+rand3$adj_rand_index
+    }}
+  
+  else if (sampling=="sample"){
+    for(i in 1:N){
+      
+      D[sample(nrow(D), N), ]
+      kmeans=classifK_means(D,k)
+      hierar=classif_hc(D,k,aggr[1],dd[1])
+      rand3=RI(kmeans$a,hierar$a)
+      m<-m+rand3$rand_index
+      p<-p+rand3$adj_rand_index
+    }
+    
+  }
+  
+  mm<-m/N
+  pp<-p/N
+  AA=cbind(mm,pp)
+  colnames(AA)=c("MEAN-RIx","MEAN-ARI")
+  return(AA)
+}
+
+```
+
+## Utilisation de l'indice de Rand pour les base FIFA 18 :
+
+```{r}
+mean=mean_rand11(a1,50,4,"sample")
+head(mean)
+```
+
+
+
+
+
+
+
+
+## 3-Comparaison et Interprétation
+
+- >*Echantillonnage simple:*
+ 
+
+- >*Echantillonnage stratifié:*
+
+
+-On remarque que l'indice de rand et l'indice de rand moyen(après 50 itérations) est très proche de 1 pour les deux types d'échantillonnages **simple** et **stratifié** avec une légère préférence pour le SAS. Cela nous permet de déduire que les deux classes obtenues par les classifications non supervisées sont similaires.
+
+-l'indice de rand ajusté moyen est moins bon (=0.7) mais, il confirme aussi la similarité des deux méthodes.
+* Validation de l'utilisation de K-means et l'hiérarchie ascendante.
+
+# V-CLASSIFICATION SUPERVISEE
+
+## 1-Arbre de décision
+
+```{r  echo=FALSE}
+base=read.csv('file.csv')
+a2=base[,-c(1,2,3,4,8,9,10)]
+a2=a2[-14]
+a1=a2[1:1000,]
+
+classifK_means<-function(X,k){
+  classif<-kmeans(X, k, iter.max = 10, nstart = 1)
+  a=rep(0,nrow(X))
+  X=cbind.data.frame(X,a)
+  
+  X[,48]=as.factor(classif$cluster)
+  return(X)
+}
+
+library(rpart)
+library(rpart.plot)
+arbre.full <- rpart(kmeans$a ~ ., data = kmeans, method = "class")
+rpart.plot(arbre.full)
+```
+
+
+
+# VI-CONCLUSION
+
+-Finalement, à l'aide de la classification non supervisée, avec ses différentes méthodes, on a pu aboutir à une bonne répartition des joueurs internationaux de football en 4 partitions pertinantes: "Attaquant", "Défonceur","Gardien de but" et "Milieu du terrain".
+
+-Pour vérifier la similarité des résultats fournis par k-means et l'hiérarchie, l'indice de rand moyen était satisfaisant, proche de 1.
+
+
+# VII-ANNEXE
+
+```{r eval=FALSE}
+#INDICE DE RAND: 
+simul.X <- function(n1,n2,n3,n4){ 
+  
+  library(mvtnorm)
+  mu=c(12,30)
+  sigma=diag(1,2)
+  x1=rmvnorm(n =n1, mean =mu, sigma)
+  mu=c(25,36)
+  sigma=diag(1,2)
+  x2=rmvnorm(n = n2, mean =mu, sigma)
+  mu=c(11,25)
+  sigma=diag(1,2)
+  x3=rmvnorm(n = n3, mean =mu, sigma)
+  mu=c(5,35)
+  sigma=diag(1,2)
+  x4=rmvnorm(n = n4, mean =mu, sigma)
+  X=rbind.data.frame(x1,x2,x3,x4)
+return(X)
+}
+
+#HIERARCHIQUE ASCENDANTE
+
+dd<-c("euclidian")
+aggr<-c("ward","weighted","single","complete","average","flexible","gaverage") 
+
+classif_hc<-function(X,k,aggr,dd){
+  
+  library(cluster)
+  classif<-agnes(X,method = aggr) 
+  cut<-cutree(classif,k=k)
+  a=rep(0,nrow(X))
+  X=cbind.data.frame(X,a)
+  
+  X[,48]=as.factor(cut)
+  return(X)
+}
+
+#K-MEANS
+classifK_means<-function(X,k){
+  classif<-kmeans(X, k, iter.max = 10, nstart = 1)
+  a=rep(0,nrow(X))
+  X=cbind.data.frame(X,a)
+  
+  X[,48]=as.factor(classif$cluster)
+  return(X)
+  
+}
+
+ #INDICE DE RAND
+RI <- function(D1,D2){
+  
+  library(fossil)
+  
+  v<-as.numeric(D1)
+  vv<-as.numeric(D2)
+  
+   # rand index
+  x <- abs(sapply(v, function(x) x - v))
+  x[x > 1] <- 1
+  y <- abs(sapply(vv, function(x) x - vv))
+  y[y > 1] <- 1
+  sg <- sum(abs(x - y))/2
+  bc <- choose(dim(x)[1], 2)
+  ri <- 1 - sg/bc
+  
+  # adj rand index
+  a <- length(table(v))
+  N <- length(v)
+  ctab <- matrix(N, a, a)
+  for (j in 1:a) {
+    for (i in 1:a) {
+      ctab[j, i] <- length(which(vv[which(v == 
+                                                i)] == j))
+    }
+  }
+  sumnij <- sum(choose(ctab, 2))
+  sumai <- sum(choose(colSums(ctab), 2))
+  sumbj <- sum(choose(rowSums(ctab), 2))
+  Ntwo <- choose(N, 2)
+  ari <- abs((sumnij - (sumai * sumbj)/Ntwo)/(0.5 * (sumai + 
+                                                       sumbj) - (sumai * sumbj)/Ntwo))
+  
+  #a=rand.index(v,vv)
+  #b=adj.rand.index(v,vv)
+  A=cbind(ri,ari)
+  colnames(A)=c("rand_index","adj_rand_index")
+  A=as.data.frame(A)
+  #A=as.table(A)
+  #METHOD <- "Augmented Dickey-Fuller Test"
+  #names(ari) <- "rand index"
+  #names(ri) <- "adjasted-rand index"
+  #structure(list(statistic = ari, parameter = ri, method = METHOD, data.name ="A" ), 
+   #         class = "htest")
+  return(A)
+}
+
+# STRATIFICATION
+stratif <- function(D1,D2){
+  library(splitstackshape)
+  A=cbind.data.frame(D1,D2)
+  c=stratified(A,c("D1","D2"),.2) #not sure about the size = 20%
+  colnames(c)<-c("echantillon_1","echantillon_2")
+  return(c)
+}
+```
+
