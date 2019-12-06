@@ -1,7 +1,7 @@
 ---
 title: "classification non supervisee/supervisée et sa stabilité"
 author: "Triki Sadok"
-date: "28 décembre 2018"
+date: "8 October 2019"
 output: pdf_document 
 ---
 
@@ -9,25 +9,25 @@ output: pdf_document
 knitr::opts_chunk$set(fig.height = 3,echo = TRUE)
 ```
 
- \center { Prédiction du postions des joueurs selon leur notes on FIFA 2018}
+ \center { Predicting player's positions by their scores from FIFA 2018}
 \newpage
 
 # I-INTRODUCTION
-Le football est le sport collectif le plus répondu dans le monde, qui touche toute génération et tout genre.
-Certaines personnes, qui sont nouvelles à ce sport, ou meme certaines entreprises(sous un interet bien déterminé) veulent connaitre ou étudier le **profiling des joueurs** les plus connus au monde. 
-Donc pour faciliter la tache, on a recourt à classifier les joueurs celon un critère pour mieux étudier leurs caractéristiques. 
+Football is the most reputaded sport in the planet, followers are from all ages and sexes.
+Many people and start ups want to study the profiling of the players for some reason. 
+To facilitate this task, we will classify players aith some critera to predict each player's position in the game. 
 
-# 1-Problèmatique
--Comment connaître à priori le profil des joueurs les plus populaires? s'il est "Attaquant", "Défenseur","Gardien de but" ou "milieu de Terrain"
+# 1-Questions to answer:
+-What is the criteria we will use to classify players? s'il est "Attacker", "Defender","goal keeper" ou "midfielder"
 
--Comment ditinguer le profil d'un nouvel joueur selon la classification adaptée?
+-how to classify a new player from it's caracteristics?
 
-- Est ce que cette classifiction est stable ? 
+- will this classification be stable ? 
 
-## 2-Objectif
-L’objectif consiste à la  recherche  d’une typologie, ou segmentation, c’est-à-dire d’une partition, ou répartition des joueurs en classes homogènes et distinctes les unes des autres  pour un échantillon d’apprentissage.
+## 2-Goals:
+The goal is to find the best classes, or segments, where we will divide players into homogenious classes and then caracterise those classes.
 
-# II-EXPLOITATION DES DONNEES
+# II-Data manipulation:
 
 ```{r }
 base=read.csv('file.csv')
@@ -35,14 +35,14 @@ a2=base[,-c(1,2,3,4,8,9,10)]
 head(base)
 
 ```
+
 Ce jeu de données est celui du jeu Fifa 2017 contenant tous les joueurs inscrits dans l'organisme FIFPRO 
-*source* : 
 ## Statistique Descreptive : 
 ```{r}
 base::summary(a2[,1:10])
 ```
 
-# III-CLASSIFICATION NON SUPERVIEE
+# III-NON SUPERVISED CLASSIFICATION
 
 ## 1-K-means
 ```{r echo=FALSE}
@@ -65,7 +65,7 @@ a1=a2[1:300,]
 kmeans=classifK_means(a1,4)
 
 library(plyr)
-b=revalue(kmeans$a, c("1"="Gardien", "2"="Defenseur","3"="milieu","4"="Attaque"))
+b=revalue(kmeans$a, c("1"="goal_keeper", "2"="Defender","3"="Miedfielder","4"="Attacker"))
 P=cbind.data.frame(base$name[1:300],base$club[1:300],b)
 colnames(P)[3]='classe'
 head(P)
@@ -74,13 +74,13 @@ head(P)
 
 ```
 
-## Représentation des Résultats: 
+## Results: 
 
 ```{r}
 ggplot(kmeans, aes(kmeans$overall, kmeans$age, color = P$classe)) + geom_point()
 ```
 
-## 2-Hiérarchie ascendante
+## 2-Hierarchical classification:
 
 ```{r  echo=FALSE}
 base=read.csv('file.csv')
@@ -105,47 +105,48 @@ classif_hc<-function(X,k,aggr,dd){
 }
 
 hierar=classif_hc(a1,4,aggr[1],dd[1])
-b2=revalue(hierar$a, c("1"="Attaquant", "2"="Gardien","3"="milieu","4"="Defenseur"))
+b2=revalue(hierar$a, c("1"="Attacker", "2"="Goal_keeper","3"="Midfielder","4"="Defender"))
 
 P2=cbind.data.frame(base$name[1:1000],base$club[1:1000],b2)
 colnames(P2)[3]='classe'
 head(P2)
 
 ```
-## Représentation : 
+## Representation : 
 ```{r}
 ggplot(hierar, aes(hierar$overall, hierar$age, color =P2$classe )) + geom_point()
 ```
 
-## 3-Classification finale des joueurs
+## 3 Final classification of players:
 
 ```{r  echo=FALSE}
 bs=cbind.data.frame(P[1:300,],P2$classe[1:300])
-colnames(bs)[3]="Classe Kmeans"
-colnames(bs)[4]= "Classe cluster"
+colnames(bs)[3]="Class Kmeans"
+colnames(bs)[4]= "Class cluster"
 head(bs)
 ```
 
--La meilleure partition pour les deux méthodes est égale à 4.
+-The best is to classify players to 4 classes.
 
--Donc on peut classer les joueurs selon 4 classes: 
+-Those 4 classes will be: 
 
-- 1: **Attaquant**
+- 1: **Attacker**
 
-- 2: **Gardient de but**
+- 2: **Goal keeper**
 
-- 3: **Milieu du terrain**
+- 3: **Midfielder**
 
-- 4: **Défenceur**
+- 4: **Defender**
 
 # IV-INDICE DE RAND ET STABILITE
 
 ## 1-Définition
-L'indice de Rand est une mesure de **similarité** entre deux partitions d'un ensemble1. Il est principalement utilisé en catégorisation automatique. Son principe est de mesurer la consistance (le taux d'accord) entre deux partitions.
+"Rand" Index is a tool that can measure the **similarity** between two classifications.
+He is mostly used in automatic categorisation.
+It can mesure the consistancy between two possible classifications.
 
-## 2-Démarche algorithmique(Pour Une simulation )
-* simuler un jeu de données X composé de multivariées normales xi-> N(ui,sigma).
- (Etape primordiale dans le cas de non existance d'une base réelle)
+## 2- Algorithm(Simulation)
+* Simulate a Data set X composed of multivariate normal distribution xi-> N(ui,sigma).
 
 ```{r X, echo=FALSE}
 simul.X <- function(n1,n2,n3,n4){ 
@@ -172,15 +173,15 @@ head(X)
 ```
  
 
-* appliquer les algorithmes de classifications A(k) et B(k) -> Pa(k) , Pb(k).
-(Dans notre example on utilisera K-means A(k) et l'hiérarchie ascendante B(K)).
+* Apply classification Algorithms A(k) et B(k) -> Pa(k) , Pb(k).
+(Here, we will use Kmeans A(k) et hierarchical classification B(K)).
 
-* Etudier la stabilité des partitions en appliquant l'Indice de Rand(IR) et l'Indice de Rand Corrigé(IRC).
+* Study stability of partitions using Rand index and Rand index modified.
  
-* Echantillonnage (stratifié, SAS ..)Ej, appliquer Aj(k) et Bj(k) -> Pa(K) , Pb(K).
- Evaluer la stabilité par IR , IRC
+* sampling (stratified, SAS ..)Ej, applyed to Aj(k) et Bj(k) -> Pa(K) , Pb(K).
+ Evaluate stability with IR , IRC
  
-* Repeter N fois le processus.
+* Repeate N times the process.
 
 ```{r }
 RI <- function(D1,D2){
@@ -266,7 +267,7 @@ mean_rand11<-function(D,N,k,sampling){
 
 ```
 
-## Utilisation de l'indice de Rand pour les base FIFA 18 :
+## Using Rand index for FIFA18 dataset
 
 ```{r}
 mean=mean_rand11(a1,50,4,"sample")
@@ -280,22 +281,22 @@ head(mean)
 
 
 
-## 3-Comparaison et Interprétation
+## 3-Comparing and Interpreting:
 
-- >*Echantillonnage simple:*
+- >*Simple sampling (SAS):*
  
 
-- >*Echantillonnage stratifié:*
+- >*Stratified Sampling:*
 
 
--On remarque que l'indice de rand et l'indice de rand moyen(après 50 itérations) est très proche de 1 pour les deux types d'échantillonnages **simple** et **stratifié** avec une légère préférence pour le SAS. Cela nous permet de déduire que les deux classes obtenues par les classifications non supervisées sont similaires.
+-We notice that the mean of Rand index (after 50 itérations) is close to 1 for the two sampling methods **simple** et **stratified**. That confirm that the two methods of classification used gives almost the same classes.
 
--l'indice de rand ajusté moyen est moins bon (=0.7) mais, il confirme aussi la similarité des deux méthodes.
-* Validation de l'utilisation de K-means et l'hiérarchie ascendante.
+-Rand index modified gives same results (=0.7) and, it confirms the similarity of the methods.
+* We will the use then Kmeans and hierarchical classifications.
 
-# V-CLASSIFICATION SUPERVISEE
+# V-SUPERVISED CLASSIFICATION
 
-## 1-Arbre de décision
+## 1- Decision Tree:
 
 ```{r  echo=FALSE}
 base=read.csv('file.csv')
@@ -320,11 +321,11 @@ rpart.plot(arbre.full)
 
 
 
-# VI-CONCLUSION
+# VI-CONCLUSION:
 
--Finalement, à l'aide de la classification non supervisée, avec ses différentes méthodes, on a pu aboutir à une bonne répartition des joueurs internationaux de football en 4 partitions pertinantes: "Attaquant", "Défonceur","Gardien de but" et "Milieu du terrain".
+-Finally, Thanks to a non supervised classification, with different methods, we have now a good partition of football international players : "Attacker", "Defender","Goal keeper" et "Midfielder".
 
--Pour vérifier la similarité des résultats fournis par k-means et l'hiérarchie, l'indice de rand moyen était satisfaisant, proche de 1.
+-To verify the similarity in resulats given by Kmeans and hierarchical classification, Rand index is good, enough close to 1.
 
 
 # VII-ANNEXE
@@ -350,7 +351,7 @@ simul.X <- function(n1,n2,n3,n4){
 return(X)
 }
 
-#HIERARCHIQUE ASCENDANTE
+#HIERARCHICAL CLASSIFICATION
 
 dd<-c("euclidian")
 aggr<-c("ward","weighted","single","complete","average","flexible","gaverage") 
